@@ -29,7 +29,14 @@ namespace CredentialManagement
         public CredentialSet Load()
         {
             CheckNotDisposed();
-            LoadInternal();
+            LoadInternal(false);
+            return this;
+        }
+
+        public CredentialSet LoadOrThrow()
+        {
+            CheckNotDisposed();
+            LoadInternal(true);
             return this;
         }
 
@@ -45,7 +52,7 @@ namespace CredentialManagement
             GC.SuppressFinalize(this);
         }
 
-        private void LoadInternal()
+        private void LoadInternal(bool throwOnError)
         {
             DisposeCredentials();
 
@@ -54,7 +61,19 @@ namespace CredentialManagement
             bool result = NativeMethods.CredEnumerateW(Target, 0, out count, out credentialsPointer);
             if (!result)
             {
-                Trace.WriteLine(new Win32Exception(Marshal.GetLastWin32Error()));
+                int error = Marshal.GetLastWin32Error();
+                if (error == (int)NativeMethods.CREDErrorCodes.ERROR_NOT_FOUND)
+                {
+                    return;
+                }
+
+                Win32Exception exception = new Win32Exception(error);
+                if (throwOnError)
+                {
+                    throw exception;
+                }
+
+                Trace.WriteLine(exception);
                 return;
             }
 

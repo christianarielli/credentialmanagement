@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Text;
@@ -169,6 +170,51 @@ namespace CredentialManagement
 
         public bool Save()
         {
+            int ignoredError;
+            return SaveCore(out ignoredError);
+        }
+
+        public void SaveOrThrow()
+        {
+            int error;
+            if (!SaveCore(out error))
+            {
+                throw new Win32Exception(error);
+            }
+        }
+
+        public bool Delete()
+        {
+            int ignoredError;
+            return DeleteCore(out ignoredError);
+        }
+
+        public void DeleteOrThrow()
+        {
+            int error;
+            if (!DeleteCore(out error))
+            {
+                throw new Win32Exception(error);
+            }
+        }
+
+        public bool Load()
+        {
+            int ignoredError;
+            return LoadCore(out ignoredError);
+        }
+
+        public void LoadOrThrow()
+        {
+            int error;
+            if (!LoadCore(out error))
+            {
+                throw new Win32Exception(error);
+            }
+        }
+
+        private bool SaveCore(out int error)
+        {
             CheckNotDisposed();
 
             string password = Password;
@@ -199,6 +245,7 @@ namespace CredentialManagement
                 };
 
                 bool result = NativeMethods.CredWrite(ref credential, 0);
+                error = result ? 0 : Marshal.GetLastWin32Error();
                 if (result)
                 {
                     LastWriteTimeUtc = DateTime.UtcNow;
@@ -216,7 +263,7 @@ namespace CredentialManagement
             }
         }
 
-        public bool Delete()
+        private bool DeleteCore(out int error)
         {
             CheckNotDisposed();
 
@@ -225,10 +272,12 @@ namespace CredentialManagement
                 throw new InvalidOperationException("Target must be specified to delete a credential.");
             }
 
-            return NativeMethods.CredDelete(Target, Type, 0);
+            bool result = NativeMethods.CredDelete(Target, Type, 0);
+            error = result ? 0 : Marshal.GetLastWin32Error();
+            return result;
         }
 
-        public bool Load()
+        private bool LoadCore(out int error)
         {
             CheckNotDisposed();
 
@@ -240,8 +289,11 @@ namespace CredentialManagement
             IntPtr credentialPointer;
             if (!NativeMethods.CredRead(Target, Type, 0, out credentialPointer))
             {
+                error = Marshal.GetLastWin32Error();
                 return false;
             }
+
+            error = 0;
 
             using (NativeMethods.CriticalCredentialHandle credentialHandle =
                    new NativeMethods.CriticalCredentialHandle(credentialPointer))
