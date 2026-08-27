@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  build-and-test:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-2022
+          - windows-2025
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+
+      - name: Restore locked dependencies
+        run: dotnet restore src/CredentialManagement.sln --locked-mode
+
+      - name: Build
+        run: dotnet build src/CredentialManagement.sln --configuration Release --no-restore -warnaserror
+
+      - name: Run non-interactive tests
+        run: dotnet test src/CredentialManagement.sln --configuration Release --no-build --no-restore
+
+  architecture-build:
+    name: Build ${{ matrix.architecture }}
+    runs-on: windows-2025
+    strategy:
+      matrix:
+        architecture:
+          - x86
+          - x64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+
+      - name: Restore locked dependencies
+        run: dotnet restore src/CredentialManagement/CredentialManagement.csproj --locked-mode
+
+      - name: Build architecture
+        run: dotnet build src/CredentialManagement/CredentialManagement.csproj --configuration Release --no-restore -warnaserror -p:PlatformTarget=${{ matrix.architecture }}
+
+  package:
+    name: Create NuGet package
+    needs:
+      - build-and-test
+      - architecture-build
+    runs-on: windows-2025
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+
+      - name: Restore locked dependencies
+        run: dotnet restore src/CredentialManagement/CredentialManagement.csproj --locked-mode
+
+      - name: Pack
+        run: dotnet pack src/CredentialManagement/CredentialManagement.csproj --configuration Release --no-restore -warnaserror --output artifacts
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: CredentialManagement-packages
+          path: artifacts/*.*nupkg
+          if-no-files-found: error
