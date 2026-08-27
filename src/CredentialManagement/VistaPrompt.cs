@@ -1,13 +1,13 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace CredentialManagement
 {
-    public class VistaPrompt: BaseCredentialsPrompt
+    public class VistaPrompt : BaseCredentialsPrompt
     {
-        string _domain;
+        private string _domain;
 
         public VistaPrompt()
         {
@@ -26,17 +26,19 @@ namespace CredentialManagement
                 CheckNotDisposed();
                 if (string.IsNullOrEmpty(value))
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
+
                 _domain = value;
             }
         }
+
         public override bool ShowSaveCheckBox
         {
             get
             {
                 CheckNotDisposed();
-                return 0 != ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX & DialogFlags);
+                return ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX & DialogFlags) != 0;
             }
             set
             {
@@ -44,12 +46,13 @@ namespace CredentialManagement
                 AddFlag(value, (int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX);
             }
         }
+
         public override bool GenericCredentials
         {
             get
             {
                 CheckNotDisposed();
-                return 0 != ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_GENERIC & DialogFlags);
+                return ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_GENERIC & DialogFlags) != 0;
             }
             set
             {
@@ -64,113 +67,133 @@ namespace CredentialManagement
 
             if (string.IsNullOrEmpty(Title) && string.IsNullOrEmpty(Message))
             {
-                throw new InvalidOperationException("Title or Message should always be set.");
+                throw new InvalidOperationException("Title or Message must be set.");
             }
 
-            if (!IsWinVistaOrHigher)
+            if (!IsWindowsVistaOrHigher)
             {
-                throw new InvalidOperationException("This Operating System does not support this prompt.");
+                throw new PlatformNotSupportedException("The Windows credential prompt requires Windows Vista or later.");
             }
 
-            uint authPackage = 0;
-            IntPtr outCredBuffer;
-            uint outCredSize;
-            IntPtr inCredBuffer = IntPtr.Zero;
-            int inCredBufferSize = 0;
+            IntPtr inputBuffer = IntPtr.Zero;
+            int inputBufferSize = 0;
+            IntPtr outputBuffer = IntPtr.Zero;
+            uint outputBufferSize = 0;
+            StringBuilder usernameBuffer = new StringBuilder(NativeMethods.CREDUI_MAX_USERNAME_LENGTH);
+            StringBuilder passwordBuffer = new StringBuilder(NativeMethods.CREDUI_MAX_PASSWORD_LENGTH);
+            StringBuilder domainBuffer = new StringBuilder(NativeMethods.CREDUI_MAX_USERNAME_LENGTH);
 
-            bool persist = SaveChecked;
-
-            NativeMethods.CREDUI_INFO credUI = CreateCREDUI_INFO(owner);
-
-            if (!string.IsNullOrEmpty(Username) || !string.IsNullOrEmpty(SecureStringHelper.CreateString(SecurePassword)))
-            {
-                // This seems to be very hacky but don't know a better way to do it yet
-                // Call this method with the same credentials with the empty credentials buffer so that we can get it's size first
-                // but it throws an error because the buffer is too small. So we'll re-initialize the buffer with correct size
-                // and call again to populate the buffer this time.
-                NativeMethods.CredPackAuthenticationBuffer(0, new StringBuilder(Username), new StringBuilder(SecureStringHelper.CreateString(SecurePassword)), inCredBuffer, ref inCredBufferSize);
-                if (Marshal.GetLastWin32Error() == 122)
-                {
-                    // returned from prior method call and we now should have a valid size for the buffer
-                    inCredBuffer = Marshal.AllocCoTaskMem(inCredBufferSize);
-                    if (!NativeMethods.CredPackAuthenticationBuffer(0, new StringBuilder(Username), new StringBuilder(SecureStringHelper.CreateString(SecurePassword)), inCredBuffer, ref inCredBufferSize))
-                    {
-                        throw new Win32Exception(Marshal.GetLastWin32Error(), "There was an issue with the given Username or Password.");
-                    }
-                }
-            }
-
-            //Show the dialog
-            NativeMethods.CredUIReturnCodes dialogResult;
             try
             {
-                dialogResult = NativeMethods.CredUIPromptForWindowsCredentials(ref credUI, ErrorCode, ref authPackage,
-                                                                                    inCredBuffer,
-                    //You can force that a specific username is shown in the dialog. Create it with 'CredPackAuthenticationBuffer()'. Then, the buffer goes here...
-                                                                                    (uint)inCredBufferSize,
-                    //...and the size goes here. You also have to add CREDUIWIN_IN_CRED_ONLY to the flags (last argument).
-                                                                                    out outCredBuffer,
-                                                                                    out outCredSize,
-                                                                                    ref persist,
-                                                                                    DialogFlags);
-                // If the user has checked the Save Credentials checkbox then the persist variable
-                // will be set to true and we want to set it so that the consumer can approprietly act
-                // on the user action.
-                SaveChecked = persist;
-            }
-            catch (EntryPointNotFoundException e)
-            {
-                throw new InvalidOperationException("This functionality is not supported by this operating system.", e);
-            }
-            switch (dialogResult)
-            {
-                case NativeMethods.CredUIReturnCodes.ERROR_CANCELLED:
+                string username = Username;
+                string password = Password;
+                if (!string.IsNullOrEmpty(username) || !string.IsNullOrEmpty(password))
+                {
+                    PackInputCredentials(username, password, out inputBuffer, out inputBufferSize);
+                }
+
+                uint authenticationPackage = 0;
+                bool saveChecked = SaveChecked;
+                NativeMethods.CREDUI_INFO credUi = CreateCREDUI_INFO(owner);
+                NativeMethods.CredUIReturnCodes result = NativeMethods.CredUIPromptForWindowsCredentials(
+                    ref credUi,
+                    ErrorCode,
+                    ref authenticationPackage,
+                    inputBuffer,
+                    (uint)inputBufferSize,
+                    out outputBuffer,
+                    out outputBufferSize,
+                    ref saveChecked,
+                    DialogFlags);
+
+                SaveChecked = saveChecked;
+                if (result == NativeMethods.CredUIReturnCodes.ERROR_CANCELLED)
+                {
                     return DialogResult.Cancel;
-                case NativeMethods.CredUIReturnCodes.ERROR_NO_SUCH_LOGON_SESSION:
-                case NativeMethods.CredUIReturnCodes.ERROR_NOT_FOUND:
-                case NativeMethods.CredUIReturnCodes.ERROR_INVALID_ACCOUNT_NAME:
-                case NativeMethods.CredUIReturnCodes.ERROR_INSUFFICIENT_BUFFER:
-                case NativeMethods.CredUIReturnCodes.ERROR_INVALID_PARAMETER:
-                case NativeMethods.CredUIReturnCodes.ERROR_INVALID_FLAGS:
-                case NativeMethods.CredUIReturnCodes.ERROR_BAD_ARGUMENTS:
-                    throw new InvalidOperationException("Invalid properties were specified.", new Win32Exception(Marshal.GetLastWin32Error()));
-            }
+                }
 
-            int maxUsername = 1000;
-            int maxPassword = 1000;
-            int maxDomain = 1000;
+                if (result != NativeMethods.CredUIReturnCodes.NO_ERROR)
+                {
+                    throw new Win32Exception((int)result);
+                }
 
-            StringBuilder usernameBuffer = new StringBuilder(1000);
-            StringBuilder passwordBuffer = new StringBuilder(1000);
-            StringBuilder domainBuffer = new StringBuilder(1000);
-
-            bool result = NativeMethods.CredUnPackAuthenticationBuffer(0, outCredBuffer, outCredSize,
-                                                                       usernameBuffer,
-                                                                       ref maxUsername, domainBuffer,
-                                                                       ref maxDomain,
-                                                                       passwordBuffer, ref maxPassword);
-            if (result)
-            {
-                NativeMethods.CoTaskMemFree(outCredBuffer);
+                int usernameLength = usernameBuffer.Capacity;
+                int passwordLength = passwordBuffer.Capacity;
+                int domainLength = domainBuffer.Capacity;
+                if (!NativeMethods.CredUnPackAuthenticationBuffer(
+                        0,
+                        outputBuffer,
+                        outputBufferSize,
+                        usernameBuffer,
+                        ref usernameLength,
+                        domainBuffer,
+                        ref domainLength,
+                        passwordBuffer,
+                        ref passwordLength))
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
 
                 Username = usernameBuffer.ToString();
                 Password = passwordBuffer.ToString();
-
-                if (passwordBuffer.Length > 0)
-                {
-                    passwordBuffer.Remove(0, passwordBuffer.Length);
-                }
+                _domain = domainBuffer.ToString();
+                return DialogResult.OK;
             }
-
-            return DialogResult.OK;
+            finally
+            {
+                NativeMethods.ClearStringBuilder(passwordBuffer);
+                NativeMethods.ZeroAndFreeCoTaskMem(inputBuffer, inputBufferSize);
+                NativeMethods.ZeroAndFreeCoTaskMem(outputBuffer, checked((int)outputBufferSize));
+            }
         }
 
-        bool IsWinVistaOrHigher
+        private static bool IsWindowsVistaOrHigher
         {
             get
             {
-                OperatingSystem OS = Environment.OSVersion;
-                return (OS.Platform == PlatformID.Win32NT) && (OS.Version.Major >= 6);
+                OperatingSystem operatingSystem = Environment.OSVersion;
+                return operatingSystem.Platform == PlatformID.Win32NT && operatingSystem.Version.Major >= 6;
+            }
+        }
+
+        private static void PackInputCredentials(
+            string username,
+            string password,
+            out IntPtr inputBuffer,
+            out int inputBufferSize)
+        {
+            inputBuffer = IntPtr.Zero;
+            inputBufferSize = 0;
+
+            if (NativeMethods.CredPackAuthenticationBuffer(
+                    0,
+                    username,
+                    password,
+                    IntPtr.Zero,
+                    ref inputBufferSize))
+            {
+                return;
+            }
+
+            int error = Marshal.GetLastWin32Error();
+            if (error != (int)NativeMethods.CredUIReturnCodes.ERROR_INSUFFICIENT_BUFFER)
+            {
+                throw new Win32Exception(error, "The supplied credentials could not be packed.");
+            }
+
+            inputBuffer = Marshal.AllocCoTaskMem(inputBufferSize);
+            if (!NativeMethods.CredPackAuthenticationBuffer(
+                    0,
+                    username,
+                    password,
+                    inputBuffer,
+                    ref inputBufferSize))
+            {
+                error = Marshal.GetLastWin32Error();
+                NativeMethods.ZeroAndFreeCoTaskMem(inputBuffer, inputBufferSize);
+                inputBuffer = IntPtr.Zero;
+                inputBufferSize = 0;
+                throw new Win32Exception(error, "The supplied credentials could not be packed.");
             }
         }
     }

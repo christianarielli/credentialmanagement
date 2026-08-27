@@ -240,13 +240,6 @@ namespace CredentialManagement
         {
             CheckNotDisposed();
 
-            NativeMethods.CREDUI_INFO credUI = CreateCREDUI_INFO(owner);
-
-            StringBuilder usernameBuffer = new StringBuilder(1000);
-            StringBuilder passwordBuffer = new StringBuilder(1000);
-
-            bool persist = SaveChecked;
-
             if (string.IsNullOrEmpty(Target))
             {
                 throw new InvalidOperationException("Target must always be specified.");
@@ -257,35 +250,60 @@ namespace CredentialManagement
                 throw new InvalidOperationException("AlwaysShowUI must be specified with GenericCredentials property.");
             }
 
-            NativeMethods.CredUIReturnCodes result = NativeMethods.CredUIPromptForCredentials(ref credUI, Target,
-                                                                                  IntPtr.Zero, ErrorCode, usernameBuffer,
-                                                                                  NativeMethods.CREDUI_MAX_USERNAME_LENGTH,
-                                                                                  passwordBuffer,
-                                                                                  NativeMethods.CREDUI_MAX_PASSWORD_LENGTH,
-                                                                                  ref persist, DialogFlags);
-            switch (result)
+            NativeMethods.CREDUI_INFO credUI = CreateCREDUI_INFO(owner);
+            StringBuilder usernameBuffer = new StringBuilder(NativeMethods.CREDUI_MAX_USERNAME_LENGTH);
+            StringBuilder passwordBuffer = new StringBuilder(NativeMethods.CREDUI_MAX_PASSWORD_LENGTH);
+            bool persist = SaveChecked;
+
+            try
             {
-                case NativeMethods.CredUIReturnCodes.ERROR_CANCELLED:
+                NativeMethods.CredUIReturnCodes result = NativeMethods.CredUIPromptForCredentials(
+                    ref credUI,
+                    Target,
+                    IntPtr.Zero,
+                    ErrorCode,
+                    usernameBuffer,
+                    usernameBuffer.Capacity,
+                    passwordBuffer,
+                    passwordBuffer.Capacity,
+                    ref persist,
+                    DialogFlags);
+
+                SaveChecked = persist;
+                if (result == NativeMethods.CredUIReturnCodes.ERROR_CANCELLED)
+                {
                     return DialogResult.Cancel;
-                case NativeMethods.CredUIReturnCodes.ERROR_NO_SUCH_LOGON_SESSION:
-                case NativeMethods.CredUIReturnCodes.ERROR_NOT_FOUND:
-                case NativeMethods.CredUIReturnCodes.ERROR_INVALID_ACCOUNT_NAME:
-                case NativeMethods.CredUIReturnCodes.ERROR_INSUFFICIENT_BUFFER:
-                case NativeMethods.CredUIReturnCodes.ERROR_INVALID_PARAMETER:
-                case NativeMethods.CredUIReturnCodes.ERROR_INVALID_FLAGS:
-                case NativeMethods.CredUIReturnCodes.ERROR_BAD_ARGUMENTS:
-                    throw new InvalidOperationException("Invalid properties were specified.", new Win32Exception(Marshal.GetLastWin32Error()));
+                }
+
+                if (result != NativeMethods.CredUIReturnCodes.NO_ERROR)
+                {
+                    throw new Win32Exception((int)result);
+                }
+
+                Username = usernameBuffer.ToString();
+                Password = passwordBuffer.ToString();
+                return DialogResult.OK;
             }
-
-            Username = usernameBuffer.ToString();
-            Password = passwordBuffer.ToString();
-
-            if (passwordBuffer.Length > 0)
+            finally
             {
-                passwordBuffer.Remove(0, passwordBuffer.Length);
+                NativeMethods.ClearStringBuilder(passwordBuffer);
+                if (credUI.hbmBanner != IntPtr.Zero)
+                {
+                    NativeMethods.DeleteObject(credUI.hbmBanner);
+                    credUI.hbmBanner = IntPtr.Zero;
+                }
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && _banner != null)
+            {
+                _banner.Dispose();
+                _banner = null;
             }
 
-            return DialogResult.OK;
+            base.Dispose(disposing);
         }
     }
 }

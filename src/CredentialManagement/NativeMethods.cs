@@ -41,7 +41,9 @@ namespace CredentialManagement
         {
             public int cbSize;
             public IntPtr hwndParent;
+            [MarshalAs(UnmanagedType.LPWStr)]
             public string pszMessageText;
+            [MarshalAs(UnmanagedType.LPWStr)]
             public string pszCaptionText;
             public IntPtr hbmBanner;
         }
@@ -156,20 +158,48 @@ namespace CredentialManagement
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CredEnumerateW(string filter, int flag, out uint count, out IntPtr pCredentials);
 
-        [DllImport("credui.dll")]
+        [DllImport("credui.dll", EntryPoint = "CredUIPromptForCredentialsW", CharSet = CharSet.Unicode)]
         internal static extern CredUIReturnCodes CredUIPromptForCredentials(ref CREDUI_INFO creditUR, string targetName, IntPtr reserved1, int iError, StringBuilder userName, int maxUserName, StringBuilder password, int maxPassword, [MarshalAs(UnmanagedType.Bool)] ref bool pfSave, int flags);
 
-        [DllImport("credui.dll", CharSet = CharSet.Unicode)]
-        internal static extern CredUIReturnCodes CredUIPromptForWindowsCredentials(ref CREDUI_INFO notUsedHere, int authError, ref uint authPackage, IntPtr InAuthBuffer, uint InAuthBufferSize, out IntPtr refOutAuthBuffer, out uint refOutAuthBufferSize, ref bool fSave, int flags);
+        [DllImport("credui.dll", EntryPoint = "CredUIPromptForWindowsCredentialsW", CharSet = CharSet.Unicode)]
+        internal static extern CredUIReturnCodes CredUIPromptForWindowsCredentials(ref CREDUI_INFO notUsedHere, int authError, ref uint authPackage, IntPtr inAuthBuffer, uint inAuthBufferSize, out IntPtr refOutAuthBuffer, out uint refOutAuthBufferSize, [MarshalAs(UnmanagedType.Bool)] ref bool save, int flags);
 
-        [DllImport("ole32.dll")]
-        internal static extern void CoTaskMemFree(IntPtr ptr);
+        [DllImport("credui.dll", EntryPoint = "CredPackAuthenticationBufferW", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CredPackAuthenticationBuffer(int flags, string username, string password, IntPtr packedCredentials, ref int packedCredentialsSize);
 
-        [DllImport("credui.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern Boolean CredPackAuthenticationBuffer(int dwFlags, StringBuilder pszUserName, StringBuilder pszPassword, IntPtr pPackedCredentials, ref int pcbPackedCredentials);
+        [DllImport("credui.dll", EntryPoint = "CredUnPackAuthenticationBufferW", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CredUnPackAuthenticationBuffer(int flags, IntPtr authBuffer, uint authBufferSize, StringBuilder username, ref int maxUsername, StringBuilder domainName, ref int maxDomainName, StringBuilder password, ref int maxPassword);
 
-        [DllImport("credui.dll", CharSet = CharSet.Auto)]
-        internal static extern bool CredUnPackAuthenticationBuffer(int dwFlags, IntPtr pAuthBuffer, uint cbAuthBuffer, StringBuilder pszUserName, ref int pcchMaxUserName, StringBuilder pszDomainName, ref int pcchMaxDomainame, StringBuilder pszPassword, ref int pcchMaxPassword);
+        [DllImport("gdi32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool DeleteObject(IntPtr objectHandle);
+
+        internal static void ClearStringBuilder(StringBuilder value)
+        {
+            for (int index = 0; index < value.Length; index++)
+            {
+                value[index] = '\0';
+            }
+
+            value.Clear();
+        }
+
+        internal static void ZeroAndFreeCoTaskMem(IntPtr pointer, int byteCount)
+        {
+            if (pointer == IntPtr.Zero)
+            {
+                return;
+            }
+
+            for (int index = 0; index < byteCount; index++)
+            {
+                Marshal.WriteByte(pointer, index, 0);
+            }
+
+            Marshal.FreeCoTaskMem(pointer);
+        }
 
         internal sealed class CriticalCredentialHandle : CriticalHandleZeroOrMinusOneIsInvalid
         {
