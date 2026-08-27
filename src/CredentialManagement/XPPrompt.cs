@@ -31,7 +31,7 @@ namespace CredentialManagement
                 CheckNotDisposed();
                 if (string.IsNullOrEmpty(value))
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
                 _target = value;
             }

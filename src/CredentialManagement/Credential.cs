@@ -222,7 +222,7 @@ namespace CredentialManagement
             if (passwordBytes.Length > MaxCredentialBlobSize)
             {
                 Array.Clear(passwordBytes, 0, passwordBytes.Length);
-                throw new ArgumentOutOfRangeException(nameof(Password), "The credential blob must not exceed 2560 bytes.");
+                throw new InvalidOperationException("The credential blob must not exceed 2560 bytes.");
             }
 
             IntPtr passwordPointer = IntPtr.Zero;

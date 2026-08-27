@@ -39,7 +39,7 @@ namespace CredentialManagement.Test
             string oversizedPassword = new string('x', 1281);
             using (Credential credential = new Credential("user", oversizedPassword, "unused"))
             {
-                Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => credential.Save());
+                Assert.ThrowsExactly<InvalidOperationException>(() => credential.Save());
             }
         }
 
