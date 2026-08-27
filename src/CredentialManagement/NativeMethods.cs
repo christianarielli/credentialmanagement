@@ -138,18 +138,22 @@ namespace CredentialManagement
         }
 
         [DllImport("Advapi32.dll", EntryPoint = "CredReadW", CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern bool CredRead(string target, CredentialType type, int reservedFlag, out IntPtr CredentialPtr);
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CredRead(string target, CredentialType type, int reservedFlag, out IntPtr credentialPointer);
 
         [DllImport("Advapi32.dll", EntryPoint = "CredWriteW", CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern bool CredWrite([In] ref CREDENTIAL userCredential, [In] UInt32 flags);
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CredWrite([In] ref CREDENTIAL userCredential, [In] uint flags);
 
         [DllImport("Advapi32.dll", EntryPoint = "CredFree", SetLastError = true)]
-        internal static extern bool CredFree([In] IntPtr cred);
+        internal static extern void CredFree([In] IntPtr cred);
 
-        [DllImport("advapi32.dll", EntryPoint = "CredDeleteW", CharSet = CharSet.Unicode)]
-        internal static extern bool CredDelete(StringBuilder target, CredentialType type, int flags);
+        [DllImport("advapi32.dll", EntryPoint = "CredDeleteW", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CredDelete(string target, CredentialType type, int flags);
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CredEnumerateW(string filter, int flag, out uint count, out IntPtr pCredentials);
 
         [DllImport("credui.dll")]
@@ -180,12 +184,22 @@ namespace CredentialManagement
                 if (!IsInvalid)
                 {
                     // Get the Credential from the mem location
-                    return (CREDENTIAL)Marshal.PtrToStructure(handle, typeof(CREDENTIAL));
+                    return Marshal.PtrToStructure<CREDENTIAL>(handle);
                 }
                 else
                 {
                     throw new InvalidOperationException("Invalid CriticalHandle!");
                 }
+            }
+
+            internal IntPtr GetRawHandle()
+            {
+                if (IsInvalid)
+                {
+                    throw new InvalidOperationException("Invalid credential handle.");
+                }
+
+                return handle;
             }
 
             // Perform any specific actions to release the handle in the ReleaseHandle method.

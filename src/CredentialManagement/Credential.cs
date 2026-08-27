@@ -1,41 +1,23 @@
-﻿using System;
-using System.ComponentModel;
+using System;
 using System.Runtime.InteropServices;
 using System.Security;
-#if NETFRAMEWORK
-using System.Security.Permissions;
-#endif
 using System.Text;
 
 namespace CredentialManagement
 {
-    public class Credential: IDisposable
+    public class Credential : IDisposable
     {
+        private const int MaxCredentialBlobSize = 5 * 512;
 
-        static object _lockObject = new object();
-        bool _disposed;
+        private bool _disposed;
+        private CredentialType _type;
+        private string _target;
+        private SecureString _password;
+        private string _username;
+        private string _description;
+        private DateTime _lastWriteTime;
+        private PersistanceType _persistanceType;
 
-#if NETFRAMEWORK
-        static readonly SecurityPermission _unmanagedCodePermission;
-#endif
-
-        CredentialType _type;
-        string _target;
-        SecureString _password;
-        string _username;
-        string _description;
-        DateTime _lastWriteTime;
-        PersistanceType _persistanceType;
-
-        static Credential()
-        {
-#if NETFRAMEWORK
-            lock (_lockObject)
-            {
-                _unmanagedCodePermission = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
-            }
-#endif
-        }
         public Credential()
             : this(null)
         {
@@ -66,42 +48,8 @@ namespace CredentialManagement
             _lastWriteTime = DateTime.MinValue;
         }
 
-
-        public void Dispose()
+        public string Username
         {
-            Dispose(true);
-
-            // Prevent GC Collection since we have already disposed of this object
-            GC.SuppressFinalize(this);
-        }
-        ~Credential()
-        {
-            Dispose(false);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    SecurePassword.Clear();
-                    SecurePassword.Dispose();
-                }
-            }
-            _disposed = true;
-        }
-
-        private void CheckNotDisposed()
-        {
-            if (_disposed)
-            {
-                throw new ObjectDisposedException("Credential object is already disposed.");
-            }
-        }
-
-
-        public string Username {
             get
             {
                 CheckNotDisposed();
@@ -113,39 +61,37 @@ namespace CredentialManagement
                 _username = value;
             }
         }
+
         public string Password
         {
             get
             {
-                return SecureStringHelper.CreateString(SecurePassword);
+                using (SecureString password = SecurePassword)
+                {
+                    return SecureStringHelper.CreateString(password);
+                }
             }
             set
             {
                 CheckNotDisposed();
-                SecurePassword = SecureStringHelper.CreateSecureString(string.IsNullOrEmpty(value) ? string.Empty : value);
+                ReplacePassword(SecureStringHelper.CreateSecureString(value ?? string.Empty));
             }
         }
+
         public SecureString SecurePassword
         {
             get
             {
                 CheckNotDisposed();
-#if NETFRAMEWORK
-                _unmanagedCodePermission.Demand();
-#endif
-                return null == _password ? new SecureString() : _password.Copy();
+                return _password == null ? new SecureString() : _password.Copy();
             }
             set
             {
                 CheckNotDisposed();
-                if (null != _password)
-                {
-                    _password.Clear();
-                    _password.Dispose();
-                }
-                _password = null == value ? new SecureString() : value.Copy();
+                ReplacePassword(value == null ? new SecureString() : value.Copy());
             }
         }
+
         public string Target
         {
             get
@@ -174,21 +120,16 @@ namespace CredentialManagement
             }
         }
 
-        public DateTime LastWriteTime
+        public DateTime LastWriteTime => LastWriteTimeUtc.ToLocalTime();
+
+        public DateTime LastWriteTimeUtc
         {
-            get
-            {
-                return LastWriteTimeUtc.ToLocalTime();
-            }
-        }
-        public DateTime LastWriteTimeUtc 
-        { 
             get
             {
                 CheckNotDisposed();
                 return _lastWriteTime;
             }
-            private set { _lastWriteTime = value; }
+            private set => _lastWriteTime = value;
         }
 
         public CredentialType Type
@@ -222,82 +163,95 @@ namespace CredentialManagement
         public bool Save()
         {
             CheckNotDisposed();
-#if NETFRAMEWORK
-            _unmanagedCodePermission.Demand();
-#endif
 
-            byte[] passwordBytes = Encoding.Unicode.GetBytes(Password);
-            if (Password.Length > (512))
+            string password = Password;
+            byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
+            if (passwordBytes.Length > MaxCredentialBlobSize)
             {
-                throw new ArgumentOutOfRangeException("The password has exceeded 512 bytes.");
+                Array.Clear(passwordBytes, 0, passwordBytes.Length);
+                throw new ArgumentOutOfRangeException(nameof(Password), "The credential blob must not exceed 2560 bytes.");
             }
 
-            NativeMethods.CREDENTIAL credential = new NativeMethods.CREDENTIAL();
-            credential.TargetName = Target;
-            credential.UserName = Username;
-            credential.CredentialBlob = Marshal.StringToCoTaskMemUni(Password);
-            credential.CredentialBlobSize = passwordBytes.Length;
-            credential.Comment = Description;
-            credential.Type = (int)Type;
-            credential.Persist = (int) PersistanceType;
-
-            bool result = NativeMethods.CredWrite(ref credential, 0);
-            if (!result)
+            IntPtr passwordPointer = IntPtr.Zero;
+            try
             {
-                return false;
+                if (passwordBytes.Length > 0)
+                {
+                    passwordPointer = Marshal.StringToCoTaskMemUni(password);
+                }
+
+                NativeMethods.CREDENTIAL credential = new NativeMethods.CREDENTIAL
+                {
+                    TargetName = Target,
+                    UserName = Username,
+                    CredentialBlob = passwordPointer,
+                    CredentialBlobSize = passwordBytes.Length,
+                    Comment = Description,
+                    Type = (int)Type,
+                    Persist = (int)PersistanceType
+                };
+
+                bool result = NativeMethods.CredWrite(ref credential, 0);
+                if (result)
+                {
+                    LastWriteTimeUtc = DateTime.UtcNow;
+                }
+
+                return result;
             }
-            LastWriteTimeUtc = DateTime.UtcNow;
-            return true;
+            finally
+            {
+                Array.Clear(passwordBytes, 0, passwordBytes.Length);
+                if (passwordPointer != IntPtr.Zero)
+                {
+                    Marshal.ZeroFreeCoTaskMemUnicode(passwordPointer);
+                }
+            }
         }
 
         public bool Delete()
         {
             CheckNotDisposed();
-#if NETFRAMEWORK
-            _unmanagedCodePermission.Demand();
-#endif
 
             if (string.IsNullOrEmpty(Target))
             {
                 throw new InvalidOperationException("Target must be specified to delete a credential.");
             }
 
-            StringBuilder target = string.IsNullOrEmpty(Target) ? new StringBuilder() : new StringBuilder(Target);
-            bool result = NativeMethods.CredDelete(target, Type, 0);
-            return result;
+            return NativeMethods.CredDelete(Target, Type, 0);
         }
 
         public bool Load()
         {
             CheckNotDisposed();
-#if NETFRAMEWORK
-            _unmanagedCodePermission.Demand();
-#endif
 
-            IntPtr credPointer;
+            if (string.IsNullOrEmpty(Target))
+            {
+                throw new InvalidOperationException("Target must be specified to load a credential.");
+            }
 
-            bool result = NativeMethods.CredRead(Target, Type, 0, out credPointer);
-            if (!result)
+            IntPtr credentialPointer;
+            if (!NativeMethods.CredRead(Target, Type, 0, out credentialPointer))
             {
                 return false;
             }
-            using (NativeMethods.CriticalCredentialHandle credentialHandle = new NativeMethods.CriticalCredentialHandle(credPointer))
+
+            using (NativeMethods.CriticalCredentialHandle credentialHandle =
+                   new NativeMethods.CriticalCredentialHandle(credentialPointer))
             {
                 LoadInternal(credentialHandle.GetCredential());
             }
+
             return true;
         }
 
         public bool Exists()
         {
             CheckNotDisposed();
-#if NETFRAMEWORK
-            _unmanagedCodePermission.Demand();
-#endif
 
             if (string.IsNullOrEmpty(Target))
             {
-                throw new InvalidOperationException("Target must be specified to check existance of a credential.");
+                throw new InvalidOperationException("Target must be specified to check existence of a credential.");
             }
 
             using (Credential existing = new Credential { Target = Target, Type = Type })
@@ -306,18 +260,52 @@ namespace CredentialManagement
             }
         }
 
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (_password != null)
+            {
+                _password.Dispose();
+                _password = null;
+            }
+
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
+
         internal void LoadInternal(NativeMethods.CREDENTIAL credential)
         {
             Username = credential.UserName;
-            if (credential.CredentialBlobSize > 0)
-            {
-                Password = Marshal.PtrToStringUni(credential.CredentialBlob, credential.CredentialBlobSize / 2);
-            }
+            Password = credential.CredentialBlobSize > 0
+                ? Marshal.PtrToStringUni(credential.CredentialBlob, credential.CredentialBlobSize / sizeof(char))
+                : string.Empty;
             Target = credential.TargetName;
             Type = (CredentialType)credential.Type;
             PersistanceType = (PersistanceType)credential.Persist;
             Description = credential.Comment;
             LastWriteTimeUtc = DateTime.FromFileTimeUtc(credential.LastWritten);
+        }
+
+        private void ReplacePassword(SecureString password)
+        {
+            if (_password != null)
+            {
+                _password.Dispose();
+            }
+
+            _password = password;
+        }
+
+        private void CheckNotDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(Credential));
+            }
         }
     }
 }
