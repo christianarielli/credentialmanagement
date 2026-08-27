@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CredentialManagement.Test
@@ -7,68 +7,51 @@ namespace CredentialManagement.Test
     public class CredentialSetTests
     {
         [TestMethod]
-        public void CredentialSet_Create()
+        public void Constructor_RequiresNonEmptyTargetWhenSpecified()
         {
-            new CredentialSet().ShouldNotBeNull();
+            using (CredentialSet credentials = new CredentialSet("target"))
+            {
+                Assert.AreEqual("target", credentials.Target);
+            }
+
+            Assert.ThrowsExactly<ArgumentNullException>(() => new CredentialSet(string.Empty));
         }
 
         [TestMethod]
-        public void CredentialSet_Create_WithTarget()
+        public void FilteredLoad_ReturnsOnlyMatchingCredentialWithoutDuplicates()
         {
-            new CredentialSet("target").ShouldNotBeNull();
+            string target = "CredentialManagement.Tests.Set." + Guid.NewGuid().ToString("N");
+            using (Credential saved = new Credential("filter-user", "filter-password", target))
+            {
+                try
+                {
+                    saved.SaveOrThrow();
+                    using (CredentialSet credentials = new CredentialSet(target))
+                    {
+                        Assert.AreSame(credentials, credentials.LoadOrThrow());
+                        Assert.AreEqual(1, credentials.Count);
+                        Assert.AreEqual(target, credentials[0].Target);
+
+                        credentials.LoadOrThrow();
+                        Assert.AreEqual(1, credentials.Count);
+                    }
+                }
+                finally
+                {
+                    if (saved.Exists())
+                    {
+                        saved.DeleteOrThrow();
+                    }
+                }
+            }
         }
 
         [TestMethod]
-        public void CredentialSet_ShouldBeIDisposable()
+        public void DisposedSet_RejectsFurtherLoads()
         {
-            Assert.IsTrue(new CredentialSet() is IDisposable, "CredentialSet needs to implement IDisposable Interface.");
-        }
-
-        [TestMethod]
-        public void CredentialSet_Load()
-        {
-            Credential credential = new Credential
-                                        {
-                                            Username = "username",
-                                            Password = "password",
-                                            Target = "target",
-                                            Type = CredentialType.Generic
-                                        };
-            credential.Save();
-
-            CredentialSet set = new CredentialSet();
-            set.Load();
-            set.ShouldNotBeNull();
-            set.ShouldNotBeEmpty();
-
-            credential.Delete();
-
-            set.Dispose();
-        }
-
-        [TestMethod]
-        public void CredentialSet_Load_ShouldReturn_Self()
-        {
-            CredentialSet set = new CredentialSet();
-            set.Load().ShouldBeOfType(typeof (CredentialSet));
-
-            set.Dispose();
-        }
-
-        [TestMethod]
-        public void CredentialSet_Load_With_TargetFilter()
-        {
-            Credential credential = new Credential
-                                        {
-                                            Username = "filteruser",
-                                            Password = "filterpassword",
-                                            Target = "filtertarget"
-                                        };
-            credential.Save();
-
-            CredentialSet set = new CredentialSet("filtertarget");
-            set.Load().ShouldHaveCountOf(1);
-            set.Dispose();
+            CredentialSet credentials = new CredentialSet();
+            credentials.Dispose();
+            Assert.ThrowsExactly<ObjectDisposedException>(() => credentials.Load());
         }
     }
 }

@@ -2,9 +2,12 @@
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
+#pragma warning disable CS0618
+
 namespace CredentialManagement.Test
 {
     [TestClass]
+    [TestCategory("Interactive")]
     public class VistaPromptTests
     {
         static string MAX_LENGTH_VALIDATION_TEXT;

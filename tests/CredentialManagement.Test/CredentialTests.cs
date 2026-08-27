@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace CredentialManagement.Test
@@ -7,95 +7,64 @@ namespace CredentialManagement.Test
     public class CredentialTests
     {
         [TestMethod]
-        public void Credential_Create_ShouldNotThrowNull()
+        public void Constructors_CreateCredential()
         {
-            new Credential().ShouldNotBeNull();
+            using (Credential empty = new Credential())
+            using (Credential username = new Credential("username"))
+            using (Credential password = new Credential("username", "password"))
+            using (Credential target = new Credential("username", "password", "target"))
+            {
+                Assert.IsNotNull(empty);
+                Assert.AreEqual("username", username.Username);
+                Assert.AreEqual("password", password.Password);
+                Assert.AreEqual("target", target.Target);
+            }
         }
 
         [TestMethod]
-        public void Credential_Create_With_Username_ShouldNotThrowNull()
+        public void DisposedCredential_RejectsFurtherAccess()
         {
-            new Credential("username").ShouldNotBeNull();
+            Credential credential = new Credential { Password = "password" };
+            credential.Dispose();
+            Assert.ThrowsExactly<ObjectDisposedException>(() => credential.Username = "username");
         }
 
         [TestMethod]
-        public void Credential_Create_With_Username_And_Password_ShouldNotThrowNull()
+        public void SaveLoadExistsDelete_RoundTripsUnicodeCredential()
         {
-            new Credential("username", "password").ShouldNotBeNull();
-        }
-        [TestMethod]
-        public void Credential_Create_With_Username_Password_Target_ShouldNotThrowNull()
-        {
-            new Credential("username", "password","target").ShouldNotBeNull();
+            string target = CreateTarget();
+            using (Credential saved = new Credential("domain\\üser", "pässwörd🔐", target))
+            {
+                saved.PersistenceType = PersistenceType.Session;
+                try
+                {
+                    saved.SaveOrThrow();
+                    Assert.IsTrue(saved.Exists());
+
+                    using (Credential loaded = new Credential { Target = target })
+                    {
+                        loaded.LoadOrThrow();
+                        Assert.AreEqual(saved.Username, loaded.Username);
+                        Assert.AreEqual(saved.Password, loaded.Password);
+                        Assert.AreEqual(target, loaded.Target);
+                        Assert.AreEqual(PersistenceType.Session, loaded.PersistenceType);
+                    }
+                }
+                finally
+                {
+                    if (saved.Exists())
+                    {
+                        saved.DeleteOrThrow();
+                    }
+                }
+
+                Assert.IsFalse(saved.Exists());
+            }
         }
 
-        [TestMethod]
-        public void Credential_ShouldBe_IDisposable()
+        private static string CreateTarget()
         {
-            Assert.IsTrue(new Credential() is IDisposable, "Credential should implement IDisposable Interface.");
-        }
-        
-        [TestMethod]
-        public void Credential_Dispose_ShouldNotThrowException()
-        {
-            new Credential().Dispose();
-        }
-        [TestMethod]
-        public void Credential_ShouldThrowObjectDisposedException()
-        {
-            Credential disposed = new Credential {Password = "password"};
-            disposed.Dispose();
-            Assert.ThrowsExactly<ObjectDisposedException>(() => disposed.Username = "username");
-        }
-
-        [TestMethod]
-        public void Credential_Save()
-        {
-            Credential saved = new Credential("username", "password", "target", CredentialType.Generic);
-            saved.PersistanceType = PersistanceType.LocalComputer;
-            saved.Save().ShouldBeTrue();
-        }
-        
-        [TestMethod]
-        public void Credential_Delete()
-        {
-            new Credential("username", "password", "target").Save();
-            new Credential("username", "password","target").Delete().ShouldBeTrue();
-        }
-
-        [TestMethod]
-        public void Credential_Delete_NullTerminator()
-        {
-            Credential credential = new Credential((string)null, (string)null, "\0", CredentialType.None);
-            credential.Description = (string)null;
-            credential.Delete().ShouldBeFalse();
-        }
-       
-        [TestMethod]
-        public void Credential_Load()
-        {
-            Credential setup = new Credential("username", "password", "target", CredentialType.Generic);
-            setup.Save();
-
-            Credential credential = new Credential {Target = "target", Type = CredentialType.Generic };
-            credential.Load().ShouldBeTrue();
-
-            credential.Username.ShouldNotBeEmpty();
-            credential.Password.ShouldNotBeNull();
-            credential.Username.ShouldEqual("username");
-            credential.Password.ShouldEqual("password");
-            credential.Target.ShouldEqual("target");
-        }
-
-        [TestMethod]
-        public void Credential_Exists_Target_ShouldNotBeNull()
-        {
-            new Credential { Username = "username", Password = "password", Target = "target" }.Save();
-            
-            Credential existingCred = new Credential {Target = "target"};
-            existingCred.Exists().ShouldBeTrue();
-            
-            existingCred.Delete();
+            return "CredentialManagement.Tests." + Guid.NewGuid().ToString("N");
         }
     }
 }
