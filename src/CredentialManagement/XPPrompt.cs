@@ -6,6 +6,7 @@ using System.Text;
 
 namespace CredentialManagement
 {
+    [Obsolete("This legacy prompt is retained for compatibility. Use WindowsCredentialsPrompt instead.")]
     public class XPPrompt : BaseCredentialsPrompt
     {
 

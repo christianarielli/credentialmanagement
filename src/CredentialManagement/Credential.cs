@@ -16,7 +16,7 @@ namespace CredentialManagement
         private string _username;
         private string _description;
         private DateTime _lastWriteTime;
-        private PersistanceType _persistanceType;
+        private PersistenceType _persistenceType;
 
         public Credential()
             : this(null)
@@ -44,7 +44,7 @@ namespace CredentialManagement
             Password = password;
             Target = target;
             Type = type;
-            PersistanceType = PersistanceType.Session;
+            PersistenceType = PersistenceType.Session;
             _lastWriteTime = DateTime.MinValue;
         }
 
@@ -146,18 +146,25 @@ namespace CredentialManagement
             }
         }
 
-        public PersistanceType PersistanceType
+        public PersistenceType PersistenceType
         {
             get
             {
                 CheckNotDisposed();
-                return _persistanceType;
+                return _persistenceType;
             }
             set
             {
                 CheckNotDisposed();
-                _persistanceType = value;
+                _persistenceType = value;
             }
+        }
+
+        [Obsolete("Use PersistenceType instead.")]
+        public PersistanceType PersistanceType
+        {
+            get => (PersistanceType)PersistenceType;
+            set => PersistenceType = (PersistenceType)value;
         }
 
         public bool Save()
@@ -188,7 +195,7 @@ namespace CredentialManagement
                     CredentialBlobSize = passwordBytes.Length,
                     Comment = Description,
                     Type = (int)Type,
-                    Persist = (int)PersistanceType
+                    Persist = (int)PersistenceType
                 };
 
                 bool result = NativeMethods.CredWrite(ref credential, 0);
@@ -285,7 +292,7 @@ namespace CredentialManagement
                 : string.Empty;
             Target = credential.TargetName;
             Type = (CredentialType)credential.Type;
-            PersistanceType = (PersistanceType)credential.Persist;
+            PersistenceType = (PersistenceType)credential.Persist;
             Description = credential.Comment;
             LastWriteTimeUtc = DateTime.FromFileTimeUtc(credential.LastWritten);
         }

@@ -3,7 +3,7 @@ using System.Security;
 
 namespace CredentialManagement
 {
-    interface ICredentialsPrompt: IDisposable
+    public interface ICredentialsPrompt : IDisposable
     {
         DialogResult ShowDialog();
         DialogResult ShowDialog(IntPtr owner);

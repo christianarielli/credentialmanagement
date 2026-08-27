@@ -5,6 +5,7 @@ using System.Text;
 
 namespace CredentialManagement
 {
+    [Obsolete("Use WindowsCredentialsPrompt instead.")]
     public class VistaPrompt : BaseCredentialsPrompt
     {
         private string _domain;
