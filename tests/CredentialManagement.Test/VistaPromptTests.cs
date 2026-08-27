@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SoftwareApproach.TestingExtensions;
 
 namespace CredentialManagement.Test
 {

@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SoftwareApproach.TestingExtensions;
 
 namespace CredentialManagement.Test
 {
@@ -42,12 +41,11 @@ namespace CredentialManagement.Test
             new Credential().Dispose();
         }
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void Credential_ShouldThrowObjectDisposedException()
         {
             Credential disposed = new Credential {Password = "password"};
             disposed.Dispose();
-            disposed.Username = "username";
+            Assert.ThrowsExactly<ObjectDisposedException>(() => disposed.Username = "username");
         }
 
         [TestMethod]
