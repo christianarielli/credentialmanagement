@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Security;
+#if NETFRAMEWORK
 using System.Security.Permissions;
+#endif
 
 namespace CredentialManagement
 {
@@ -10,7 +12,9 @@ namespace CredentialManagement
         #region Fields
 
         bool _disposed;
-        static SecurityPermission _unmanagedCodePermission;
+#if NETFRAMEWORK
+        static readonly SecurityPermission _unmanagedCodePermission;
+#endif
         static object _lockObject = new object();
 
         string _username;
@@ -29,10 +33,12 @@ namespace CredentialManagement
 
         static BaseCredentialsPrompt()
         {
+#if NETFRAMEWORK
             lock (_lockObject)
             {
                 _unmanagedCodePermission = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
             }
+#endif
         }
 
         #endregion
@@ -209,7 +215,9 @@ namespace CredentialManagement
             get
             {
                 CheckNotDisposed();
+#if NETFRAMEWORK
                 _unmanagedCodePermission.Demand();
+#endif
                 return null == _password ? new SecureString() : _password.Copy();
             }
             set

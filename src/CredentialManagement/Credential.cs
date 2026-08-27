@@ -2,7 +2,9 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Security;
+#if NETFRAMEWORK
 using System.Security.Permissions;
+#endif
 using System.Text;
 
 namespace CredentialManagement
@@ -13,7 +15,9 @@ namespace CredentialManagement
         static object _lockObject = new object();
         bool _disposed;
 
-        static SecurityPermission _unmanagedCodePermission;
+#if NETFRAMEWORK
+        static readonly SecurityPermission _unmanagedCodePermission;
+#endif
 
         CredentialType _type;
         string _target;
@@ -25,10 +29,12 @@ namespace CredentialManagement
 
         static Credential()
         {
+#if NETFRAMEWORK
             lock (_lockObject)
             {
                 _unmanagedCodePermission = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
             }
+#endif
         }
         public Credential()
             : this(null)
@@ -124,7 +130,9 @@ namespace CredentialManagement
             get
             {
                 CheckNotDisposed();
+#if NETFRAMEWORK
                 _unmanagedCodePermission.Demand();
+#endif
                 return null == _password ? new SecureString() : _password.Copy();
             }
             set
@@ -214,7 +222,9 @@ namespace CredentialManagement
         public bool Save()
         {
             CheckNotDisposed();
+#if NETFRAMEWORK
             _unmanagedCodePermission.Demand();
+#endif
 
             byte[] passwordBytes = Encoding.Unicode.GetBytes(Password);
             if (Password.Length > (512))
@@ -243,7 +253,9 @@ namespace CredentialManagement
         public bool Delete()
         {
             CheckNotDisposed();
+#if NETFRAMEWORK
             _unmanagedCodePermission.Demand();
+#endif
 
             if (string.IsNullOrEmpty(Target))
             {
@@ -258,7 +270,9 @@ namespace CredentialManagement
         public bool Load()
         {
             CheckNotDisposed();
+#if NETFRAMEWORK
             _unmanagedCodePermission.Demand();
+#endif
 
             IntPtr credPointer;
 
@@ -277,7 +291,9 @@ namespace CredentialManagement
         public bool Exists()
         {
             CheckNotDisposed();
+#if NETFRAMEWORK
             _unmanagedCodePermission.Demand();
+#endif
 
             if (string.IsNullOrEmpty(Target))
             {
