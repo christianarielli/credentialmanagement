@@ -12,10 +12,10 @@ namespace CredentialManagement
 
         private bool _disposed;
         private CredentialType _type;
-        private string _target;
-        private SecureString _password;
-        private string _username;
-        private string _description;
+        private string? _target;
+        private SecureString? _password;
+        private string? _username;
+        private string? _description;
         private DateTime _lastWriteTime;
         private PersistenceType _persistenceType;
 
@@ -24,22 +24,22 @@ namespace CredentialManagement
         {
         }
 
-        public Credential(string username)
+        public Credential(string? username)
             : this(username, null)
         {
         }
 
-        public Credential(string username, string password)
+        public Credential(string? username, string? password)
             : this(username, password, null)
         {
         }
 
-        public Credential(string username, string password, string target)
+        public Credential(string? username, string? password, string? target)
             : this(username, password, target, CredentialType.Generic)
         {
         }
 
-        public Credential(string username, string password, string target, CredentialType type)
+        public Credential(string? username, string? password, string? target, CredentialType type)
         {
             Username = username;
             Password = password;
@@ -49,7 +49,7 @@ namespace CredentialManagement
             _lastWriteTime = DateTime.MinValue;
         }
 
-        public string Username
+        public string? Username
         {
             get
             {
@@ -63,7 +63,7 @@ namespace CredentialManagement
             }
         }
 
-        public string Password
+        public string? Password
         {
             get
             {
@@ -93,7 +93,7 @@ namespace CredentialManagement
             }
         }
 
-        public string Target
+        public string? Target
         {
             get
             {
@@ -107,7 +107,7 @@ namespace CredentialManagement
             }
         }
 
-        public string Description
+        public string? Description
         {
             get
             {
@@ -217,7 +217,7 @@ namespace CredentialManagement
         {
             CheckNotDisposed();
 
-            string password = Password;
+            string password = Password ?? string.Empty;
             byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
             if (passwordBytes.Length > MaxCredentialBlobSize)
             {
@@ -267,12 +267,13 @@ namespace CredentialManagement
         {
             CheckNotDisposed();
 
-            if (string.IsNullOrEmpty(Target))
+            string? target = Target;
+            if (target == null || target.Length == 0)
             {
                 throw new InvalidOperationException("Target must be specified to delete a credential.");
             }
 
-            bool result = NativeMethods.CredDelete(Target, Type, 0);
+            bool result = NativeMethods.CredDelete(target, Type, 0);
             error = result ? 0 : Marshal.GetLastWin32Error();
             return result;
         }
@@ -281,13 +282,14 @@ namespace CredentialManagement
         {
             CheckNotDisposed();
 
-            if (string.IsNullOrEmpty(Target))
+            string? target = Target;
+            if (target == null || target.Length == 0)
             {
                 throw new InvalidOperationException("Target must be specified to load a credential.");
             }
 
             IntPtr credentialPointer;
-            if (!NativeMethods.CredRead(Target, Type, 0, out credentialPointer))
+            if (!NativeMethods.CredRead(target, Type, 0, out credentialPointer))
             {
                 error = Marshal.GetLastWin32Error();
                 return false;
@@ -340,7 +342,7 @@ namespace CredentialManagement
         {
             Username = credential.UserName;
             Password = credential.CredentialBlobSize > 0
-                ? Marshal.PtrToStringUni(credential.CredentialBlob, credential.CredentialBlobSize / sizeof(char))
+                ? Marshal.PtrToStringUni(credential.CredentialBlob, credential.CredentialBlobSize / sizeof(char)) ?? string.Empty
                 : string.Empty;
             Target = credential.TargetName;
             Type = (CredentialType)credential.Type;

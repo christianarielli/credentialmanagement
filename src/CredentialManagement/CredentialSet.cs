@@ -24,7 +24,7 @@ namespace CredentialManagement
             Target = target;
         }
 
-        public string Target { get; set; }
+        public string? Target { get; set; }
 
         public CredentialSet Load()
         {

@@ -7,11 +7,11 @@ namespace CredentialManagement
     public abstract class BaseCredentialsPrompt : ICredentialsPrompt
     {
         private bool _disposed;
-        private string _username;
-        private SecureString _password;
+        private string? _username;
+        private SecureString? _password;
         private bool _saveChecked;
-        private string _message;
-        private string _title;
+        private string? _message;
+        private string? _title;
         private int _errorCode;
         private int _dialogFlags;
 
@@ -29,7 +29,7 @@ namespace CredentialManagement
             }
         }
 
-        public string Message
+        public string? Message
         {
             get
             {
@@ -39,7 +39,7 @@ namespace CredentialManagement
             set
             {
                 CheckNotDisposed();
-                if (string.IsNullOrEmpty(value))
+                if (value == null || value.Length == 0)
                 {
                     throw new ArgumentNullException(nameof(value));
                 }
@@ -53,7 +53,7 @@ namespace CredentialManagement
             }
         }
 
-        public string Title
+        public string? Title
         {
             get
             {
@@ -63,7 +63,7 @@ namespace CredentialManagement
             set
             {
                 CheckNotDisposed();
-                if (string.IsNullOrEmpty(value))
+                if (value == null || value.Length == 0)
                 {
                     throw new ArgumentNullException(nameof(value));
                 }
@@ -190,7 +190,7 @@ namespace CredentialManagement
         {
             return new NativeMethods.CREDUI_INFO
             {
-                cbSize = Marshal.SizeOf(typeof(NativeMethods.CREDUI_INFO)),
+                cbSize = Marshal.SizeOf<NativeMethods.CREDUI_INFO>(),
                 hwndParent = owner,
                 pszCaptionText = Title,
                 pszMessageText = Message

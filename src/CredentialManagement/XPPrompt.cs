@@ -3,17 +3,23 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
+#if NET5_0_OR_GREATER
+using System.Runtime.Versioning;
+#endif
 
 namespace CredentialManagement
 {
     [Obsolete("This legacy prompt is retained for compatibility. Use WindowsCredentialsPrompt instead.")]
+#if NET5_0_OR_GREATER
+    [SupportedOSPlatform("windows6.1")]
+#endif
     public class XPPrompt : BaseCredentialsPrompt
     {
 
-        string _target;
-        Bitmap _banner;
+        string? _target;
+        Bitmap? _banner;
 
-        public string Target
+        public string? Target
         {
             get
             {
@@ -30,7 +36,7 @@ namespace CredentialManagement
                 _target = value;
             }
         }
-        public Bitmap Banner
+        public Bitmap? Banner
         {
             get
             {
@@ -241,7 +247,8 @@ namespace CredentialManagement
         {
             CheckNotDisposed();
 
-            if (string.IsNullOrEmpty(Target))
+            string? target = Target;
+            if (target == null || target.Length == 0)
             {
                 throw new InvalidOperationException("Target must always be specified.");
             }
@@ -260,7 +267,7 @@ namespace CredentialManagement
             {
                 NativeMethods.CredUIReturnCodes result = NativeMethods.CredUIPromptForCredentials(
                     ref credUI,
-                    Target,
+                    target,
                     IntPtr.Zero,
                     ErrorCode,
                     usernameBuffer,

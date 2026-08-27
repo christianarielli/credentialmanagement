@@ -12,8 +12,8 @@ namespace CredentialManagement
         string Password { get; set; }
         SecureString SecurePassword { get; set; }
 
-        string Title { get; set; }
-        string Message { get; set; }
+        string? Title { get; set; }
+        string? Message { get; set; }
         
         bool SaveChecked { get; set; }
 

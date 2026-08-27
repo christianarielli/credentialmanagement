@@ -8,14 +8,14 @@ namespace CredentialManagement
     [Obsolete("Use WindowsCredentialsPrompt instead.")]
     public class VistaPrompt : BaseCredentialsPrompt
     {
-        private string _domain;
+        private string? _domain;
 
         public VistaPrompt()
         {
             Title = "Please provide credentials";
         }
 
-        public string Domain
+        public string? Domain
         {
             get
             {

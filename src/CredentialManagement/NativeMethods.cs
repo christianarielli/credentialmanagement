@@ -20,9 +20,9 @@ namespace CredentialManagement
             public int Flags;
             public int Type;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string TargetName;
+            public string? TargetName;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string Comment;
+            public string? Comment;
             public long LastWritten;
             public int CredentialBlobSize;
             public IntPtr CredentialBlob;
@@ -30,9 +30,9 @@ namespace CredentialManagement
             public int AttributeCount;
             public IntPtr Attributes;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string TargetAlias;
+            public string? TargetAlias;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string UserName;
+            public string? UserName;
         }
 
 
@@ -42,9 +42,9 @@ namespace CredentialManagement
             public int cbSize;
             public IntPtr hwndParent;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string pszMessageText;
+            public string? pszMessageText;
             [MarshalAs(UnmanagedType.LPWStr)]
-            public string pszCaptionText;
+            public string? pszCaptionText;
             public IntPtr hbmBanner;
         }
 
@@ -156,7 +156,7 @@ namespace CredentialManagement
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        internal static extern bool CredEnumerateW(string filter, int flag, out uint count, out IntPtr pCredentials);
+        internal static extern bool CredEnumerateW(string? filter, int flag, out uint count, out IntPtr pCredentials);
 
         [DllImport("credui.dll", EntryPoint = "CredUIPromptForCredentialsW", CharSet = CharSet.Unicode)]
         internal static extern CredUIReturnCodes CredUIPromptForCredentials(ref CREDUI_INFO creditUR, string targetName, IntPtr reserved1, int iError, StringBuilder userName, int maxUserName, StringBuilder password, int maxPassword, [MarshalAs(UnmanagedType.Bool)] ref bool pfSave, int flags);

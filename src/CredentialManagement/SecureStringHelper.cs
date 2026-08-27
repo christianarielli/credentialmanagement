@@ -8,10 +8,10 @@ namespace CredentialManagement
     internal static class SecureStringHelper
     {
         // Methods
-        internal static unsafe SecureString CreateSecureString(string plainString)
+        internal static unsafe SecureString CreateSecureString(string? plainString)
         {
             SecureString str;
-            if (string.IsNullOrEmpty(plainString))
+            if (plainString == null || plainString.Length == 0)
             {
                 return new SecureString();
             }
@@ -24,7 +24,7 @@ namespace CredentialManagement
             return str;
         }
 
-        internal static string CreateString(SecureString secureString)
+        internal static string CreateString(SecureString? secureString)
         {
             string str;
             IntPtr zero = IntPtr.Zero;
