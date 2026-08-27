@@ -14,7 +14,7 @@ namespace CredentialManagement
 
         string? Title { get; set; }
         string? Message { get; set; }
-        
+
         bool SaveChecked { get; set; }
 
         bool GenericCredentials { get; set; }

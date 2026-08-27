@@ -45,9 +45,9 @@ namespace CredentialManagement.Test
         public void XPPrompt_Username_MaxLength()
         {
             Testing.ShouldThrowException<ArgumentOutOfRangeException>(
-                () => new XPPrompt {Username = MAX_LENGTH_VALIDATION_TEXT});
-        }  
-        
+                () => new XPPrompt { Username = MAX_LENGTH_VALIDATION_TEXT });
+        }
+
         [TestMethod]
         public void XPPrompt_Username_NullValue()
         {
@@ -57,13 +57,13 @@ namespace CredentialManagement.Test
         [TestMethod]
         public void XPPrompt_Password_NullValue()
         {
-            Testing.ShouldThrowException<ArgumentNullException>(() => new XPPrompt {Password = null});
+            Testing.ShouldThrowException<ArgumentNullException>(() => new XPPrompt { Password = null });
         }
 
         [TestMethod]
         public void XPPrompt_Target_NullValue()
         {
-            Testing.ShouldThrowException<ArgumentNullException>(() => new XPPrompt {Target = null});
+            Testing.ShouldThrowException<ArgumentNullException>(() => new XPPrompt { Target = null });
         }
 
         [TestMethod]
@@ -83,7 +83,7 @@ namespace CredentialManagement.Test
         public void XPPrompt_Title_MaxLength()
         {
             Testing.ShouldThrowException<ArgumentOutOfRangeException>(
-                () => new XPPrompt {Title = MAX_LENGTH_VALIDATION_TEXT});
+                () => new XPPrompt { Title = MAX_LENGTH_VALIDATION_TEXT });
         }
 
         [TestMethod]
@@ -147,7 +147,7 @@ namespace CredentialManagement.Test
             Testing.ShouldThrowException<InvalidOperationException>(() => prompt.ShowDialog(IntPtr.Zero));
             prompt.Dispose();
         }
-        
+
         [TestMethod]
         public void XPPrompt_ShowDialog_CompleteUsername()
         {
@@ -161,11 +161,11 @@ namespace CredentialManagement.Test
         public void XPPrompt_ShowDialog_DoNotPersist()
         {
             XPPrompt prompt = GetDefaultPrompt();
-                    prompt.DoNotPersist = true;
+            prompt.DoNotPersist = true;
             prompt.ShowDialog(IntPtr.Zero);
             prompt.Dispose();
         }
-        
+
         [TestMethod]
         public void XPPrompt_ShowDialog_ExcludeCertificates()
         {
@@ -192,7 +192,7 @@ namespace CredentialManagement.Test
             prompt.ShowDialog(IntPtr.Zero).ShouldEqual(DialogResult.OK);
             prompt.Dispose();
         }
-        
+
         [TestMethod]
         public void XPPrompt_ShowDialog_IncorrectPassword()
         {
@@ -267,7 +267,7 @@ namespace CredentialManagement.Test
 
         private XPPrompt GetDefaultPrompt()
         {
-            XPPrompt prompt = new XPPrompt {Target = "target"};
+            XPPrompt prompt = new XPPrompt { Target = "target" };
             return prompt;
         }
     }
